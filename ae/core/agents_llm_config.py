@@ -171,7 +171,7 @@ class AgentsLLMConfig:
             llm_config_params.setdefault("top_p", 0.001) # type: ignore
             llm_config_params.setdefault("seed", 12345) # type: ignore
         else:
-            llm_config_params.setdefault("temperature", 0.1) # type: ignore
+            llm_config_params.setdefault("temperature", 0.0) # type: ignore
             llm_config_params.setdefault("top_p", 0.1) # type: ignore
 
         return {

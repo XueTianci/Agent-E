@@ -138,25 +138,31 @@ class PlaywrightManager:
             logger.info(f"User dir: {user_dir}")
             try:
                 PlaywrightManager._browser_context = await PlaywrightManager._playwright.chromium.launch_persistent_context(user_dir,
-                    channel= "chrome", headless=self.isheadless,
+                     headless=self.isheadless,
                     args=["--disable-blink-features=AutomationControlled",
                         "--disable-session-crashed-bubble",  # disable the restore session bubble
                         "--disable-infobars",  # disable informational popups,
-                        ],
-                        no_viewport=True
+                        "--incognito"],
+                        user_agent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+                        # no_viewport = True
+                        viewport= {"width": 1280, "height": 720}
                 )
+                await PlaywrightManager._browser_context.set_extra_http_headers({"sec-ch-ua": '"Chromium";v="109", "Not.A/Brand";v="24"'})
             except Exception as e:
                 if "Target page, context or browser has been closed" in str(e):
                     new_user_dir = tempfile.mkdtemp()
                     logger.error(f"Failed to launch persistent context with user dir {user_dir}: {e} Trying to launch with a new user dir {new_user_dir}")
                     PlaywrightManager._browser_context = await PlaywrightManager._playwright.chromium.launch_persistent_context(new_user_dir,
-                        channel= "chrome", headless=self.isheadless,
+                        headless=self.isheadless,
                         args=["--disable-blink-features=AutomationControlled",
                             "--disable-session-crashed-bubble",  # disable the restore session bubble
                             "--disable-infobars",  # disable informational popups,
-                            ],
-                            no_viewport=True
+                            "--incognito"],
+                            user_agent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+                            # no_viewport = True
+                            viewport= {"width": 1280, "height": 720}
                     )
+                    await PlaywrightManager._browser_context.set_extra_http_headers({"sec-ch-ua": '"Chromium";v="109", "Not.A/Brand";v="24"'})
                 elif "Chromium distribution 'chrome' is not found " in str(e):
                     raise ValueError("Chrome is not installed on this device. Install Google Chrome or install playwright using 'playwright install chrome'. Refer to the readme for more information.") from None
                 else:
@@ -393,7 +399,7 @@ class PlaywrightManager:
         return self._screenshots_dir
 
     async def take_screenshots(self, name: str, page: Page|None, full_page: bool = True, include_timestamp: bool = True,
-                               load_state: str = 'domcontentloaded', take_snapshot_timeout: int = 5*1000):
+                               load_state: str = 'domcontentloaded', take_snapshot_timeout: int = 100*1000):
         if not self._take_screenshots:
             return
         if page is None:

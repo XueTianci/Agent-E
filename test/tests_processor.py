@@ -20,23 +20,27 @@ from autogen.agentchat.chat import ChatResult  # type: ignore
 from playwright.async_api import Page
 from tabulate import tabulate
 from termcolor import colored
+import glob
+import re
 
+
+# os["BROWSER_STORAGE_DIR"] = "/dev/shm/playwright-temp"
 nltk.download('punkt') # type: ignore
 
-TEST_TASKS = os.path.join(PROJECT_TEST_ROOT, 'tasks')
-TEST_LOGS = os.path.join(PROJECT_TEST_ROOT, 'logs')
-TEST_RESULTS = os.path.join(PROJECT_TEST_ROOT, 'results')
+# TEST_TASKS = os.path.join("./", 'tasks')
+TEST_LOGS = os.path.join("./result")
+# TEST_RESULTS = os.path.join("./", 'results')
 
 last_agent_response = ""
 
-def check_top_level_test_folders():
-    if not os.path.exists(TEST_LOGS):
-        os.makedirs(TEST_LOGS)
-        logger.info(f"Created log folder at: {TEST_LOGS}")
+# def check_top_level_test_folders():
+#     if not os.path.exists(TEST_LOGS):
+#         os.makedirs(TEST_LOGS)
+#         logger.info(f"Created log folder at: {TEST_LOGS}")
 
-    if not os.path.exists(TEST_RESULTS):
-        os.makedirs(TEST_RESULTS)
-        logger.info(f"Created scores folder at: {TEST_RESULTS}")
+#     if not os.path.exists(TEST_RESULTS):
+#         os.makedirs(TEST_RESULTS)
+#         logger.info(f"Created scores folder at: {TEST_RESULTS}")
 
 def create_test_results_id(test_results_id: str|None, test_file: str) -> str:
     prefix = "test_results_for_"
@@ -48,8 +52,8 @@ def create_test_results_id(test_results_id: str|None, test_file: str) -> str:
     return f"{prefix}{test_file_name}"
 
 def create_task_log_folders(task_id: str, test_results_id: str):
-    task_log_dir = os.path.join(TEST_LOGS, f"{test_results_id}", f'logs_for_task_{task_id}')
-    task_screenshots_dir = os.path.join(task_log_dir, 'snapshots')
+    task_log_dir = os.path.join(TEST_LOGS, f"{test_results_id}")
+    task_screenshots_dir = os.path.join(task_log_dir, 'trajectory')
     if not os.path.exists(task_log_dir):
         os.makedirs(task_log_dir)
         logger.info(f"Created log dir for task {task_id} at: {task_log_dir}")
@@ -60,20 +64,20 @@ def create_task_log_folders(task_id: str, test_results_id: str):
     return {"task_log_folder": task_log_dir, "task_screenshots_folder": task_screenshots_dir}
 
 
-def create_results_dir(test_file: str, test_results_id: str|None) -> str:
-    results_dir = ""
-    if test_results_id:
-        results_dir = os.path.join(TEST_RESULTS, f"results_for_{test_results_id}")
-    else:
-        test_file_base = os.path.basename(test_file)
-        test_file_name = os.path.splitext(test_file_base)[0]
-        results_dir = os.path.join(TEST_RESULTS, f"results_for_test_file_{test_file_name}")
+# def create_results_dir(test_file: str, test_results_id: str|None) -> str:
+#     results_dir = ""
+#     if test_results_id:
+#         results_dir = os.path.join(TEST_RESULTS, f"results_for_{test_results_id}")
+#     else:
+#         test_file_base = os.path.basename(test_file)
+#         test_file_name = os.path.splitext(test_file_base)[0]
+#         results_dir = os.path.join(TEST_RESULTS, f"results_for_test_file_{test_file_name}")
 
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-        logger.info(f"Created results directory: {results_dir}")
+#     if not os.path.exists(results_dir):
+#         os.makedirs(results_dir)
+#         logger.info(f"Created results directory: {results_dir}")
 
-    return results_dir
+#     return results_dir
 
 
 def dump_log(task_id: str, messages_str_keys: dict[str, str], logs_dir: str):
@@ -82,11 +86,11 @@ def dump_log(task_id: str, messages_str_keys: dict[str, str], logs_dir: str):
             json.dump(messages_str_keys, f, ensure_ascii=False, indent=4)
 
 
-def save_test_results(test_results: list[dict[str, str | int | float | None]], test_results_id: str):
-    file_name = os.path.join(TEST_RESULTS, f'test_results_{test_results_id}.json')
-    with open(file_name, 'w',  encoding='utf-8') as f:
-        json.dump(test_results, f, ensure_ascii=False, indent=4)
-    logger.info(f"Test results dumped to: {file_name}")
+# def save_test_results(test_results: list[dict[str, str | int | float | None]], test_results_id: str):
+#     file_name = os.path.join(TEST_RESULTS, f'test_results_{test_results_id}.json')
+#     with open(file_name, 'w',  encoding='utf-8') as f:
+#         json.dump(test_results, f, ensure_ascii=False, indent=4)
+#     logger.info(f"Test results dumped to: {file_name}")
 
 
 def save_individual_test_result(test_result: dict[str, str | int | float | None], results_dir: str):
@@ -163,7 +167,7 @@ def print_test_result(task_result: dict[str, str | int | float | None], index: i
     The function determines the test status (Pass/Fail) based on the 'score' key in task_result and prints the result with colored status.
 
     """
-    status, color = determine_status_and_color(task_result['score']) # type: ignore
+    status, color = determine_status_and_color(0) # type: ignore
 
     cost = task_result.get("compute_cost", None)
     total_cost = None if cost is None else round(cost.get("cost", -1), 4)  # type: ignore
@@ -220,10 +224,10 @@ async def execute_single_task(task_config: dict[str, Any], browser_manager: Play
 
     task_config_validator(task_config)
 
-    command: str = task_config.get('intent', "")
+    command: str = task_config.get('confirmed_task', "")
     task_id = task_config.get('task_id')
     task_index = task_config.get('task_index')
-    start_url = task_config.get('start_url')
+    start_url = task_config.get('website')
     logger.info(f"Intent: {command}, Task ID: {task_id}")
 
     if start_url:
@@ -269,17 +273,17 @@ async def execute_single_task(task_config: dict[str, Any], browser_manager: Play
         single_task_result["last_statement"] = last_agent_response
 
 
-        evaluator = evaluator_router(task_config)
-        cdp_session = await page.context.new_cdp_session(page)
-        evaluator_result = await evaluator(
-            task_config=task_config,
-            page=page,
-            client=cdp_session,
-            answer=last_agent_response,
-        )
+        # evaluator = evaluator_router(task_config)
+        # cdp_session = await page.context.new_cdp_session(page)
+        # evaluator_result = await evaluator(
+        #     task_config=task_config,
+        #     page=page,
+        #     client=cdp_session,
+        #     answer=last_agent_response,
+        # )
 
-        single_task_result["score"] = evaluator_result["score"]
-        single_task_result["reason"] = evaluator_result["reason"]
+        # single_task_result["score"] = evaluator_result["score"]
+        # single_task_result["reason"] = evaluator_result["reason"]
     except Exception as e:
         logger.error(f"Error getting command cost: {e}")
         command_cost = {"cost": -1, "total_tokens": -1}
@@ -288,9 +292,216 @@ async def execute_single_task(task_config: dict[str, Any], browser_manager: Play
 
     return single_task_result
 
+def extract_number(filename):
+    match = re.search(r'nested.*?(\d+)\.json', filename)
+    return int(match.group(1)) if match else 0
 
-async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_task_index: int, max_task_index: int,
-               test_file: str="", test_results_id: str = "", wait_time_non_headless: int=5, take_screenshots: bool = False) -> list[dict[str, Any]]:
+# async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_task_index: int, max_task_index: int,
+#                test_file: str="", test_results_id: str = "", wait_time_non_headless: int=5, take_screenshots: bool = False) -> list[dict[str, Any]]:
+#     """
+#     Runs a specified range of test tasks using Playwright for browser interactions and AutogenWrapper for task automation.
+#     It initializes necessary components, processes each task, handles exceptions, and compiles test results into a structured list.
+
+#     Parameters:
+#     - ag (AutogenWrapper): The AutoGen wrapper that processes commands.
+#     - browser_manager (PlaywrightManager): The manager handling browser interactions, responsible for page navigation and control.
+#     - min_task_index (int): The index of the first test task to execute (inclusive).
+#     - max_task_index (int): The index of the last test task to execute (non-inclusive).
+#     - test_file (str): Path to the file containing the test configurations. If not provided, defaults to a predetermined file path.
+#     - test_results_id (str): A unique identifier for the session of test results. Defaults to a timestamp if not provided.
+#     - wait_time_non_headless (int): Time to wait between tasks when running in non-headless mode, useful for live monitoring or debugging.
+#     - take_screenshots (bool): Whether to take screenshots during test execution. Defaults to False.
+
+#     Returns:
+#     - list[dict[str, Any]]: A list of dictionaries, each containing the results from executing a test task. Results include task ID, intent, score, total command time, etc.
+
+#     This function also manages logging and saving of test results, updates the progress bar to reflect test execution status, and prints a detailed summary report at the end of the testing session.
+#     """
+#     check_top_level_test_folders()
+
+#     if not test_file or test_file == "":
+#         test_file = os.path.join(TEST_TASKS, 'NEW_NEW_FINAL_selected_tasks_300.json')
+
+#     logger.info(f"Loading test configurations from: {test_file}")
+
+#     test_configurations = load_config(test_file)
+
+#     test_results_id = create_test_results_id(test_results_id, test_file)
+
+#     results_dir = create_results_dir(test_file, test_results_id)
+#     test_results: list[dict[str, str | int | float | None]] = []
+
+#     llm_config = AgentsLLMConfig()
+#     if not ag:
+#         ag = await AutogenWrapper.create(llm_config.get_planner_agent_config(), llm_config.get_browser_nav_agent_config())
+
+#     if not browser_manager:
+#         browser_manager = browserManager.PlaywrightManager(headless=False)
+#         await browser_manager.async_initialize()
+
+#     page=await browser_manager.get_current_page()
+#     test_results = []
+#     max_task_index = len(test_configurations) if not max_task_index else max_task_index
+#     total_tests = max_task_index - min_task_index
+
+#     for index, task_config in enumerate(test_configurations[min_task_index:max_task_index], start=min_task_index):
+#         task_id = str(task_config.get('task_id'))
+#         if os.path.isdir(os.path.join("./test/logs/test_results_for_first_300_tests",task_id)):
+#             print("existing files")
+#             continue
+#         log_folders = create_task_log_folders(task_id, test_results_id)
+
+#         ag.set_chat_logs_dir(log_folders["task_log_folder"])
+
+#         browser_manager.set_take_screenshots(take_screenshots)
+#         if take_screenshots:
+#             browser_manager.set_screenshots_dir(log_folders["task_screenshots_folder"])
+
+#         print_progress_bar(index - min_task_index, total_tests)
+#         task_result = await execute_single_task(task_config, browser_manager, ag, page, log_folders["task_log_folder"])
+#         test_results.append(task_result)
+#         save_individual_test_result(task_result, results_dir)
+#         print_test_result(task_result, index + 1, total_tests)
+
+#         if not browser_manager.isheadless: # no need to wait if we are running headless
+#             await asyncio.sleep(wait_time_non_headless)  # give time for switching between tasks in case there is a human observer
+
+#         await browser_manager.take_screenshots("final", None)
+
+#         await browser_manager.close_except_specified_tab(page) # cleanup pages that are not the one we opened here
+
+#         thoughts = []
+
+#         with open(f"{log_folders['task_log_folder']}/execution_logs_{task_id}.json","r") as f:
+#             content = json.load(f)
+#             messages = list(content.values())[0]
+#             for message in messages[:-1]:
+#                 if message["role"] == "assistant" and "```json" in message["content"]:
+#                     temp = json.loads(message["content"].strip("```json").strip("```"))
+#                     if "plan" in temp and "next_step" in temp:
+#                         thought = "Plan: " + temp["plan"] + "Next step: " + temp["next_step"]
+#                     elif "plan" not in temp and "next_step" in temp:
+#                         thought = "Next step: " + temp["next_step"]
+#                     thoughts.append(thought)
+#             final_message = messages[-1]
+#             temp = json.loads(final_message["content"].strip("```json").strip("```"))
+#             if "final_response" in temp:
+#                 response_result = temp["final_response"]
+#             else:
+#                 response_result = "None"
+
+#         action_history = []
+#         actions_and_thoughts = []
+#         nezsted_json_files = glob.glob(f"{log_folders['task_log_folder']}/nested*.json")
+#         sorted_files = sorted(nezsted_json_files, key=extract_number)
+#         not_extract_name = ["get_dom_with_content_type"]
+#         for file in sorted_files:
+#             temp_dic = {}
+#             temp_dic["actions"] = []
+#             with open(file,"r") as f:
+#                 content = json.load(f)
+#                 temp_dic["thought"] = content[0]["content"].split(" Current Page")[0]
+#                 split_content = content[1:-1]
+#             for c1, c2 in zip(split_content[::2], split_content[1::2]):
+#                 if "tool_calls" in c1:
+#                     temp = c1["tool_calls"][0]
+#                     function_dic = temp["function"]
+#                     arguments = json.loads(function_dic["arguments"].strip("```json").strip("```"))
+#                     if function_dic["name"] not in not_extract_name:
+#                         match = re.search(r'(<.*?>)', c2["content"])
+#                         if match:
+#                             extracted_html = match.group(1)
+#                         else:
+#                             extracted_html = ""
+#                         if function_dic["name"] == "entertext":
+#                             action = extracted_html + " -> " + "TYPE " + arguments["entry"]["text"]
+#                             action_history.append(action)
+#                             temp_dic["actions"].append(action)
+#                         elif function_dic["name"] == "click":
+#                             action = extracted_html + " -> " + "CLICK"
+#                             action_history.append(action)
+#                             temp_dic["actions"].append(action)
+#                         elif function_dic["name"] == "press_key_combination":
+#                             action = extracted_html + " -> " + "PRESS " + arguments["key_combination"]
+#                             action_history.append(action)
+#                             temp_dic["actions"].append(action)
+#                         elif function_dic["name"] == "openurl":
+#                             action = extracted_html + " -> " + "OPEN " + arguments["url"]
+#                             action_history.append(action)
+#                             temp_dic["actions"].append(action)
+#             actions_and_thoughts.append(temp_dic)
+#         result_dic = {}
+#         result_dic["task_id"] = task_id
+#         result_dic["task"] = task_config.get('confirmed_task', "")
+#         result_dic["website"] = task_config.get('website')
+#         result_dic["reference_length"] = task_config.get('reference_length')
+#         result_dic["thoughts"] = thoughts
+#         result_dic["action_history"] =  action_history
+#         result_dic["response_result"] = response_result
+#         result_dic["actions_and_thoughts"] = actions_and_thoughts
+
+#         with open(f"{log_folders['task_log_folder']}/result.json","w") as f:
+#             json.dump(result_dic, f)
+
+#     print_progress_bar(total_tests, total_tests)  # Complete the progress bar
+#     print('\n\nAll tests completed.')
+
+#     # Aggregate and print individual test results
+#     print("\nDetailed Test Results:")
+#     detailed_results_table = [['Test Index', 'Task ID', 'Intent', 'Status', 'Time Taken (s)', 'Total Tokens', 'Total Cost ($)']]
+#     for idx, result in enumerate(test_results, 1):
+#         status, color = determine_status_and_color(0) # type: ignore
+
+#         cost: str | int | float | None = result.get("compute_cost", None)
+#         total_cost = None if cost is None else round(cost.get("cost", -1), 4)  # type: ignore
+#         total_tokens = None if cost is None else cost.get("total_tokens", -1)  # type: ignore
+
+#         detailed_results_table.append([
+#             idx, result['task_id'], result['intent'], colored(status, color), round(result['tct'], 2), # type: ignore
+#             total_tokens, total_cost
+#         ])
+
+#     print(tabulate(detailed_results_table, headers='firstrow', tablefmt='grid'))
+
+#     # Summary report
+
+#     # Calculate aggregated cost and token totals for all tests that have compute cost
+#     total_cost = 0
+#     total_tokens = 0
+
+#     for result in test_results:
+#         compute_cost = result.get("compute_cost",0) # type: ignore
+#         if compute_cost is not None and isinstance(compute_cost, dict):
+#             total_cost += compute_cost.get("cost", 0) # type: ignore
+#             total_tokens += compute_cost.get("total_tokens", 0) # type: ignore
+
+#     passed_tests = []
+#     skipped_tests = []
+#     failed_tests = []
+#     # for result in test_results:
+#     #     if result["score"] == 1:
+#     #         passed_tests.append(result) # type: ignore
+#     #     elif result["score"] < 0: # type: ignore
+#     #         skipped_tests.append(result) # type: ignore
+#     #     else:
+#     #         failed_tests.append(result) # type: ignore
+
+#     summary_table = [ # type: ignore
+#         ['Total Tests', 'Passed', 'Failed', 'Skipped', 'Average Time Taken (s)', 'Total Time Taken (s)', 'Total Tokens', 'Total Cost ($)'],
+#         [total_tests, len(passed_tests), len(failed_tests), len(skipped_tests),
+#         round(sum(test['tct'] for test in test_results) / total_tests, 2), # type: ignore
+#         round(sum(test['tct'] for test in test_results), 2),  # type: ignore
+#         total_tokens, total_cost]
+#     ]
+
+#     print('\nSummary Report:')
+#     print(tabulate(summary_table, headers='firstrow', tablefmt='grid')) # type: ignore
+
+#     return test_results
+
+
+async def run_single_task_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, task_config: dict[str, Any],
+            test_results_id: str = "", wait_time_non_headless: int=5, take_screenshots: bool = False) -> list[dict[str, Any]]:
     """
     Runs a specified range of test tasks using Playwright for browser interactions and AutogenWrapper for task automation.
     It initializes necessary components, processes each task, handles exceptions, and compiles test results into a structured list.
@@ -298,9 +509,6 @@ async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_
     Parameters:
     - ag (AutogenWrapper): The AutoGen wrapper that processes commands.
     - browser_manager (PlaywrightManager): The manager handling browser interactions, responsible for page navigation and control.
-    - min_task_index (int): The index of the first test task to execute (inclusive).
-    - max_task_index (int): The index of the last test task to execute (non-inclusive).
-    - test_file (str): Path to the file containing the test configurations. If not provided, defaults to a predetermined file path.
     - test_results_id (str): A unique identifier for the session of test results. Defaults to a timestamp if not provided.
     - wait_time_non_headless (int): Time to wait between tasks when running in non-headless mode, useful for live monitoring or debugging.
     - take_screenshots (bool): Whether to take screenshots during test execution. Defaults to False.
@@ -310,18 +518,10 @@ async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_
 
     This function also manages logging and saving of test results, updates the progress bar to reflect test execution status, and prints a detailed summary report at the end of the testing session.
     """
-    check_top_level_test_folders()
+    # check_top_level_test_folders()
 
-    if not test_file or test_file == "":
-        test_file = os.path.join(TEST_TASKS, 'test.json')
+    
 
-    logger.info(f"Loading test configurations from: {test_file}")
-
-    test_configurations = load_config(test_file)
-
-    test_results_id = create_test_results_id(test_results_id, test_file)
-
-    results_dir = create_results_dir(test_file, test_results_id)
     test_results: list[dict[str, str | int | float | None]] = []
 
     llm_config = AgentsLLMConfig()
@@ -334,41 +534,110 @@ async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_
 
     page=await browser_manager.get_current_page()
     test_results = []
-    max_task_index = len(test_configurations) if not max_task_index else max_task_index
-    total_tests = max_task_index - min_task_index
 
-    for index, task_config in enumerate(test_configurations[min_task_index:max_task_index], start=min_task_index):
-        task_id = str(task_config.get('task_id'))
+    task_id = str(task_config.get('task_id'))
+    if os.path.isdir(os.path.join("./result")):
+        print("existing files")
+        return
+    log_folders = create_task_log_folders(task_id, test_results_id)
 
-        log_folders = create_task_log_folders(task_id, test_results_id)
+    ag.set_chat_logs_dir(log_folders["task_log_folder"])
 
-        ag.set_chat_logs_dir(log_folders["task_log_folder"])
+    browser_manager.set_take_screenshots(take_screenshots)
+    if take_screenshots:
+        browser_manager.set_screenshots_dir(log_folders["task_screenshots_folder"])
 
-        browser_manager.set_take_screenshots(take_screenshots)
-        if take_screenshots:
-            browser_manager.set_screenshots_dir(log_folders["task_screenshots_folder"])
+    task_result = await execute_single_task(task_config, browser_manager, ag, page, log_folders["task_log_folder"])
+    test_results.append(task_result)
+    # save_individual_test_result(task_result, "./results")
 
-        print_progress_bar(index - min_task_index, total_tests)
-        task_result = await execute_single_task(task_config, browser_manager, ag, page, log_folders["task_log_folder"])
-        test_results.append(task_result)
-        save_individual_test_result(task_result, results_dir)
-        print_test_result(task_result, index + 1, total_tests)
+    if not browser_manager.isheadless: # no need to wait if we are running headless
+        await asyncio.sleep(wait_time_non_headless)  # give time for switching between tasks in case there is a human observer
 
-        if not browser_manager.isheadless: # no need to wait if we are running headless
-            await asyncio.sleep(wait_time_non_headless)  # give time for switching between tasks in case there is a human observer
+    await browser_manager.take_screenshots("final", None)
 
-        await browser_manager.take_screenshots("final", None)
+    await browser_manager.close_except_specified_tab(page) # cleanup pages that are not the one we opened here
 
-        await browser_manager.close_except_specified_tab(page) # cleanup pages that are not the one we opened here
+    thoughts = []
 
-    print_progress_bar(total_tests, total_tests)  # Complete the progress bar
-    print('\n\nAll tests completed.')
+    with open(f"{log_folders['task_log_folder']}/execution_logs_{task_id}.json","r") as f:
+        content = json.load(f)
+        messages = list(content.values())[0]
+        for message in messages[:-1]:
+            if message["role"] == "assistant" and "```json" in message["content"]:
+                temp = json.loads(message["content"].strip("```json").strip("```"))
+                if "plan" in temp and "next_step" in temp:
+                    thought = "Plan: " + temp["plan"] + "Next step: " + temp["next_step"]
+                elif "plan" not in temp and "next_step" in temp:
+                    thought = "Next step: " + temp["next_step"]
+                thoughts.append(thought)
+        final_message = messages[-1]
+        temp = json.loads(final_message["content"].strip("```json").strip("```"))
+        if "final_response" in temp:
+            response_result = temp["final_response"]
+        else:
+            response_result = "None"
+
+    action_history = []
+    actions_and_thoughts = []
+    nezsted_json_files = glob.glob(f"{log_folders['task_log_folder']}/nested*.json")
+    sorted_files = sorted(nezsted_json_files, key=extract_number)
+    not_extract_name = ["get_dom_with_content_type"]
+    for file in sorted_files:
+        temp_dic = {}
+        temp_dic["actions"] = []
+        with open(file,"r") as f:
+            content = json.load(f)
+            temp_dic["thought"] = content[0]["content"].split(" Current Page")[0]
+            split_content = content[1:-1]
+        for c1, c2 in zip(split_content[::2], split_content[1::2]):
+            if "tool_calls" in c1:
+                temp = c1["tool_calls"][0]
+                function_dic = temp["function"]
+                arguments = json.loads(function_dic["arguments"].strip("```json").strip("```"))
+                if function_dic["name"] not in not_extract_name:
+                    match = re.search(r'(<.*?>)', c2["content"])
+                    if match:
+                        extracted_html = match.group(1)
+                    else:
+                        extracted_html = ""
+                    if function_dic["name"] == "entertext":
+                        action = extracted_html + " -> " + "TYPE " + arguments["entry"]["text"]
+                        action_history.append(action)
+                        temp_dic["actions"].append(action)
+                    elif function_dic["name"] == "click":
+                        action = extracted_html + " -> " + "CLICK"
+                        action_history.append(action)
+                        temp_dic["actions"].append(action)
+                    elif function_dic["name"] == "press_key_combination":
+                        action = extracted_html + " -> " + "PRESS " + arguments["key_combination"]
+                        action_history.append(action)
+                        temp_dic["actions"].append(action)
+                    elif function_dic["name"] == "openurl":
+                        action = extracted_html + " -> " + "OPEN " + arguments["url"]
+                        action_history.append(action)
+                        temp_dic["actions"].append(action)
+        actions_and_thoughts.append(temp_dic)
+    result_dic = {}
+    result_dic["task_id"] = task_id
+    result_dic["confirmed_task"] = task_config.get('confirmed_task', "")
+    result_dic["website"] = task_config.get('website')
+    result_dic["reference_length"] = task_config.get('reference_length')
+    result_dic["thoughts"] = thoughts
+    result_dic["action_history"] =  action_history
+    result_dic["response_result"] = response_result
+    result_dic["actions_and_thoughts"] = actions_and_thoughts
+
+    with open(f"{log_folders['task_log_folder']}/result.json","w") as f:
+        json.dump(result_dic, f)
+
+    print('\n\ntask completed.')
 
     # Aggregate and print individual test results
     print("\nDetailed Test Results:")
     detailed_results_table = [['Test Index', 'Task ID', 'Intent', 'Status', 'Time Taken (s)', 'Total Tokens', 'Total Cost ($)']]
     for idx, result in enumerate(test_results, 1):
-        status, color = determine_status_and_color(result['score']) # type: ignore
+        status, color = determine_status_and_color(0) # type: ignore
 
         cost: str | int | float | None = result.get("compute_cost", None)
         total_cost = None if cost is None else round(cost.get("cost", -1), 4)  # type: ignore
@@ -392,27 +661,13 @@ async def run_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, min_
         if compute_cost is not None and isinstance(compute_cost, dict):
             total_cost += compute_cost.get("cost", 0) # type: ignore
             total_tokens += compute_cost.get("total_tokens", 0) # type: ignore
-
-    passed_tests = []
-    skipped_tests = []
-    failed_tests = []
-    for result in test_results:
-        if result["score"] == 1:
-            passed_tests.append(result) # type: ignore
-        elif result["score"] < 0: # type: ignore
-            skipped_tests.append(result) # type: ignore
-        else:
-            failed_tests.append(result) # type: ignore
-
-    summary_table = [ # type: ignore
-        ['Total Tests', 'Passed', 'Failed', 'Skipped', 'Average Time Taken (s)', 'Total Time Taken (s)', 'Total Tokens', 'Total Cost ($)'],
-        [total_tests, len(passed_tests), len(failed_tests), len(skipped_tests),
-        round(sum(test['tct'] for test in test_results) / total_tests, 2), # type: ignore
-        round(sum(test['tct'] for test in test_results), 2),  # type: ignore
-        total_tokens, total_cost]
-    ]
-
-    print('\nSummary Report:')
-    print(tabulate(summary_table, headers='firstrow', tablefmt='grid')) # type: ignore
+    # for result in test_results:
+    #     if result["score"] == 1:
+    #         passed_tests.append(result) # type: ignore
+    #     elif result["score"] < 0: # type: ignore
+    #         skipped_tests.append(result) # type: ignore
+    #     else:
+    #         failed_tests.append(result) # type: ignore
 
     return test_results
+

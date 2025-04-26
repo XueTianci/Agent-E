@@ -8,9 +8,15 @@ from typing import Any
 from dotenv import load_dotenv
 from nltk.tokenize import word_tokenize  # type: ignore
 from openai import OpenAI
+from openai import AzureOpenAI
 
 load_dotenv()
 client = OpenAI()
+# client = AzureOpenAI(
+#                     api_key="",
+#                     api_version="",
+#                     azure_endpoint="",
+#                 )
 
 
 def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
@@ -239,7 +245,7 @@ def load_config(config_file: Path | str) -> list[dict[str, Any]]:
 
 def task_config_validator(task_config: dict[str, Any]) -> bool:
     # Access the attributes
-    command = task_config.get('intent')
+    command = task_config.get('confirmed_task')
 
     if not command:
         raise ValueError("Intent is missing in the task config file. Without it the task cannot be run.")

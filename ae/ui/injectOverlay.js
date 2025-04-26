@@ -70,6 +70,7 @@ function injectOveralyStyles() {
   .agente-ui-automation-highlight {
     border-width: 2px !important;
     border-style: solid !important;
+    border-color: red !important;
     animation: automation_highlight_fadeout_animation 5s linear 1 forwards !important;
   }
 

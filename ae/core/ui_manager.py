@@ -54,12 +54,12 @@ class UIManager:
                 js_code = file.read()
 
             # Inject the JavaScript code into the page
-            await frame.evaluate(js_code)
-            js_bool = str(self.overlay_show_details).lower()
-            if self.overlay_is_collapsed:
-                await frame.evaluate(f"showCollapsedOverlay('{self.overlay_processing_state}', {js_bool});")
-            else:
-                await frame.evaluate(f"showExpandedOverlay('{self.overlay_processing_state}', {js_bool});")
+            # await frame.evaluate(js_code)
+            # js_bool = str(self.overlay_show_details).lower()
+            # if self.overlay_is_collapsed:
+            #     await frame.evaluate(f"showCollapsedOverlay('{self.overlay_processing_state}', {js_bool});")
+            # else:
+            #     await frame.evaluate(f"showExpandedOverlay('{self.overlay_processing_state}', {js_bool});")
 
             #update chat history in the overlay
             await self.update_overlay_chat_history(frame)

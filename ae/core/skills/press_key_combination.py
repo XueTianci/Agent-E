@@ -86,7 +86,7 @@ async def do_press_key_combination(browser_manager: PlaywrightManager, page: Pag
     logger.info(f"Executing press_key_combination with key combo: {key_combination}")
     try:
         function_name = inspect.currentframe().f_code.co_name # type: ignore
-        await browser_manager.take_screenshots(f"{function_name}_start", page)
+        await browser_manager.take_screenshots(f"{function_name}_start_full", page)
         # Split the key combination if it's a combination of keys
         keys = key_combination.split('+')
 
@@ -105,7 +105,7 @@ async def do_press_key_combination(browser_manager: PlaywrightManager, page: Pag
         logger.error(f"Error executing press_key_combination \"{key_combination}\": {e}")
         return False
 
-    await browser_manager.take_screenshots(f"{function_name}_end", page)
+    await browser_manager.take_screenshots(f"{function_name}_end_full", page)
 
     return True
 

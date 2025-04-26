@@ -38,9 +38,11 @@ async def click(selector: Annotated[str, "The properly formed query selector str
 
     function_name = inspect.currentframe().f_code.co_name # type: ignore
 
-    await browser_manager.take_screenshots(f"{function_name}_start", page)
+    await browser_manager.take_screenshots(f"{function_name}_start_full", page)
 
-    await browser_manager.highlight_element(selector, True)
+    # await browser_manager.highlight_element(selector, True)
+
+    # await browser_manager.take_screenshots(f"{function_name}_start_grounding", page)
 
     dom_changes_detected=None
     def detect_dom_changes(changes:str): # type: ignore
@@ -51,7 +53,9 @@ async def click(selector: Annotated[str, "The properly formed query selector str
     result = await do_click(page, selector, wait_before_execution)
     await asyncio.sleep(0.1) # sleep for 100ms to allow the mutation observer to detect changes
     unsubscribe(detect_dom_changes)
-    await browser_manager.take_screenshots(f"{function_name}_end", page)
+    # await browser_manager.take_screenshots(f"{function_name}_end_grounding", page)
+    # await browser_manager.highlight_element(selector, False)
+    await browser_manager.take_screenshots(f"{function_name}_end_full", page)
     await browser_manager.notify_user(result["summary_message"], message_type=MessageType.ACTION)
 
     if dom_changes_detected:

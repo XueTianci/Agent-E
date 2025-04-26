@@ -57,7 +57,7 @@ class AutogenWrapper:
 
     @classmethod
     async def create(cls, planner_agent_config: dict[str, Any], browser_nav_agent_config: dict[str, Any], agents_needed: list[str] | None = None,
-                     save_chat_logs_to_files: bool = True, planner_max_chat_round: int = 50, browser_nav_max_chat_round: int = 10):
+                     save_chat_logs_to_files: bool = True, planner_max_chat_round: int = 30, browser_nav_max_chat_round: int = 30):
         """
         Create an instance of AutogenWrapper.
 

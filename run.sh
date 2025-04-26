@@ -1,1 +1,1 @@
-python -u -m ae.main
+python -m test.run_single_tests --test_results_id first_300_tests

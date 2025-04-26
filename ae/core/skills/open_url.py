@@ -35,7 +35,7 @@ async def openurl(url: Annotated[str, "The URL to navigate to. Value must includ
         # Navigate to the URL with a short timeout to ensure the initial load starts
         function_name = inspect.currentframe().f_code.co_name # type: ignore
         
-        await browser_manager.take_screenshots(f"{function_name}_start", page)
+        await browser_manager.take_screenshots(f"{function_name}_start_full", page)
 
         await page.goto(url, timeout=timeout*1000) # type: ignore
     except PlaywrightTimeoutError as pte:
@@ -45,7 +45,7 @@ async def openurl(url: Annotated[str, "The URL to navigate to. Value must includ
         import traceback
         traceback.print_exc()
 
-    await browser_manager.take_screenshots(f"{function_name}_end", page)
+    await browser_manager.take_screenshots(f"{function_name}_end_full", page)
 
     await browser_manager.notify_user(f"Opened URL: {url}", message_type=MessageType.ACTION)
         # Get the page title
