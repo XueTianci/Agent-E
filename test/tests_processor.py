@@ -625,7 +625,7 @@ async def run_single_task_tests(ag: AutogenWrapper, browser_manager: PlaywrightM
     result_dic["reference_length"] = task_config.get('reference_length')
     result_dic["thoughts"] = thoughts
     result_dic["action_history"] =  action_history
-    result_dic["response_result"] = response_result
+    result_dic["final_result_response"] = response_result
     result_dic["actions_and_thoughts"] = actions_and_thoughts
 
     with open(f"{log_folders['task_log_folder']}/result.json","w") as f:
