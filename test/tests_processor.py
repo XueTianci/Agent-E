@@ -526,7 +526,7 @@ async def run_single_task_tests(ag: AutogenWrapper, browser_manager: PlaywrightM
 
     llm_config = AgentsLLMConfig()
     if not ag:
-        ag = await AutogenWrapper.create(llm_config.get_planner_agent_config(), llm_config.get_browser_nav_agent_config(), planner_max_chat_round, browser_nav_max_chat_round)
+        ag = await AutogenWrapper.create(llm_config.get_planner_agent_config(), llm_config.get_browser_nav_agent_config(), planner_max_chat_round = planner_max_chat_round, browser_nav_max_chat_round = browser_nav_max_chat_round)
 
     if not browser_manager:
         browser_manager = browserManager.PlaywrightManager(headless=False)
