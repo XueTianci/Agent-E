@@ -22,7 +22,7 @@ def run(input: dict[str, dict], **kwargs) -> dict[str, str]:
     print(f"Task ID: {task_id}")
     print(f"Task: {task}")
 
-    asyncio.run(run_single_task_tests(None, None, test_results_id="", task_config=task,take_screenshots=True))
+    asyncio.run(run_single_task_tests(None, None, test_results_id="", task_config=task, take_screenshots=True, planner_max_chat_round = kwargs["planner_max_chat_round"], browser_nav_max_chat_round = kwargs["browser_nav_max_chat_round"]))
 
     
     results = {}
