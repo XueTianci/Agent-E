@@ -501,7 +501,7 @@ def extract_number(filename):
 
 
 async def run_single_task_tests(ag: AutogenWrapper, browser_manager: PlaywrightManager, task_config: dict[str, Any],
-            test_results_id: str = "", wait_time_non_headless: int=5, take_screenshots: bool = False, planner_max_chat_round, browser_nav_max_chat_round) -> list[dict[str, Any]]:
+            test_results_id: str = "", wait_time_non_headless: int=5, take_screenshots: bool = False, planner_max_chat_round: int = 60, browser_nav_max_chat_round: int = 30) -> list[dict[str, Any]]:
     """
     Runs a specified range of test tasks using Playwright for browser interactions and AutogenWrapper for task automation.
     It initializes necessary components, processes each task, handles exceptions, and compiles test results into a structured list.
